@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>이름 뽑기 룰렛</title>
+<style>
+  :root{
+    --bg:#1A1633;
+    --bg-2:#241E47;
+    --panel:#2B2454;
+    --line:#443C74;
+    --ink:#F4F1FF;
+    --ink-dim:#B6ADDC;
+    --gold:#FFC857;
+    --gold-deep:#E9A81F;
+    --font:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(900px 620px at 78% 8%, #332B63 0%, rgba(51,43,99,0) 62%),
+      radial-gradient(700px 700px at 6% 92%, #2A2352 0%, rgba(42,35,82,0) 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:var(--font);
+    min-height:100vh;
+    padding:20px clamp(14px,3vw,36px) 44px;
+    -webkit-text-size-adjust:100%;
+  }
+  header{
+    display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+    max-width:1180px; margin:0 auto 18px;
+  }
+  h1{
+    font-size:clamp(1.25rem,2.4vw,1.7rem);
+    font-weight:800; letter-spacing:-.02em; margin:0;
+  }
+  header p{margin:0; color:var(--ink-dim); font-size:.92rem}
+
+  .stage{
+    max-width:1180px; margin:0 auto;
+    display:grid; gap:clamp(18px,2.6vw,34px);
+    grid-template-columns:minmax(270px,350px) 1fr;
+    align-items:start;
+  }
+
+  /* ── 왼쪽 입력 패널 ───────────────────────── */
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:20px;
+  }
+  .panel label.field{display:block; font-weight:700; margin-bottom:8px; font-size:.98rem}
+  textarea{
+    width:100%; min-height:260px; resize:vertical;
+    background:#1E1940; color:var(--ink);
+    border:1px solid var(--line); border-radius:12px;
+    padding:12px 14px;
+    font-family:var(--font); font-size:1.05rem; line-height:1.85;
+  }
+  textarea:focus-visible, input:focus-visible, button:focus-visible{
+    outline:3px solid var(--gold); outline-offset:2px;
+  }
+  .count{margin:10px 0 18px; color:var(--ink-dim); font-size:.9rem}
+  .count b{color:var(--ink)}
+  .toggle{
+    display:flex; align-items:flex-start; gap:10px;
+    padding:12px; border-radius:12px; background:#221C47;
+    border:1px solid var(--line); cursor:pointer;
+  }
+  .toggle input{width:20px; height:20px; margin:1px 0 0; accent-color:var(--gold); cursor:pointer; flex:none}
+  .toggle span{font-size:.95rem; line-height:1.45}
+  .toggle small{display:block; color:var(--ink-dim); font-size:.83rem; margin-top:3px}
+  .btn-quiet{
+    margin-top:14px; width:100%;
+    background:transparent; color:var(--ink-dim);
+    border:1px solid var(--line); border-radius:11px;
+    padding:11px; font:inherit; font-size:.92rem; cursor:pointer;
+  }
+  .btn-quiet:hover{color:var(--ink); border-color:var(--ink-dim)}
+
+  /* ── 오른쪽 룰렛 ─────────────────────────── */
+  .wheel-area{display:flex; flex-direction:column; align-items:center; gap:22px}
+  .wheel{
+    position:relative; width:100%;
+    max-width:min(560px,78vh); aspect-ratio:1;
+  }
+  canvas{
+    display:block; width:100%; height:100%;
+    border-radius:50%;
+    background:#221C47;
+    box-shadow:0 0 0 8px #100D24, 0 22px 60px rgba(0,0,0,.5);
+  }
+  .pointer{
+    position:absolute; top:-6px; left:50%; transform:translateX(-50%);
+    width:0; height:0; z-index:3;
+    border-left:17px solid transparent;
+    border-right:17px solid transparent;
+    border-top:34px solid var(--gold);
+    filter:drop-shadow(0 3px 4px rgba(0,0,0,.55));
+  }
+  .hub{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:26%; height:26%; border-radius:50%;
+    background:#181335; border:4px solid var(--gold);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    z-index:2; text-align:center; line-height:1.1;
+  }
+  .hub b{font-size:clamp(1.1rem,3.4vw,1.9rem); font-weight:800}
+  .hub small{font-size:clamp(.6rem,1.5vw,.8rem); color:var(--ink-dim)}
+  .spin{
+    width:100%; max-width:min(560px,78vh);
+    background:linear-gradient(180deg,var(--gold),var(--gold-deep));
+    color:#241A00; border:none; border-radius:16px;
+    padding:20px; cursor:pointer;
+    font-family:var(--font); font-weight:800;
+    font-size:clamp(1.25rem,2.8vw,1.7rem); letter-spacing:-.01em;
+    box-shadow:0 8px 0 #A97A08;
+  }
+  .spin:active:not(:disabled){transform:translateY(4px); box-shadow:0 4px 0 #A97A08}
+  .spin:disabled{opacity:.45; cursor:not-allowed; box-shadow:0 8px 0 #574317}
+
+  /* ── 뽑힌 순서 ───────────────────────────── */
+  .history{max-width:1180px; margin:34px auto 0}
+  .history h2{font-size:1.05rem; margin:0 0 12px; font-weight:700}
+  .history ol{list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:10px}
+  .history li{
+    display:flex; align-items:center; gap:9px;
+    background:var(--bg-2); border:1px solid var(--line);
+    border-radius:999px; padding:8px 16px 8px 9px; font-size:1.05rem;
+  }
+  .history li i{
+    font-style:normal; width:26px; height:26px; border-radius:50%;
+    background:var(--gold); color:#241A00;
+    display:grid; place-items:center; font-size:.82rem; font-weight:800; flex:none;
+  }
+  .empty{color:var(--ink-dim); font-size:.95rem; margin:0}
+
+  /* ── 당첨자 화면 ─────────────────────────── */
+  .overlay{
+    position:fixed; inset:0; z-index:10;
+    background:rgba(12,9,28,.94);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:clamp(18px,4vh,40px); padding:24px; text-align:center;
+  }
+  .overlay[hidden]{display:none}
+  .reveal-order{
+    margin:0; color:var(--ink-dim);
+    font-size:clamp(1rem,3vw,1.6rem); font-weight:600;
+  }
+  .reveal-name{
+    margin:0; font-weight:800; letter-spacing:-.03em; line-height:1.05;
+    font-size:clamp(3.2rem,15vw,13rem);
+    word-break:keep-all;
+    text-shadow:0 0 40px rgba(0,0,0,.6);
+  }
+  .btn-ghost{
+    background:transparent; color:var(--ink);
+    border:2px solid var(--line); border-radius:14px;
+    padding:14px 40px; font:inherit; font-size:1.1rem; font-weight:700; cursor:pointer;
+  }
+  .btn-ghost:hover{border-color:var(--gold); color:var(--gold)}
+
+  @media (max-width:860px){
+    .stage{grid-template-columns:1fr}
+    .wheel-area{order:-1}
+    textarea{min-height:180px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .spin:active:not(:disabled){transform:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>이름 뽑기 룰렛</h1>
+  <p>이름을 한 줄에 하나씩 넣고 돌리세요</p>
+</header>
+
+<main class="stage">
+  <section class="panel">
+    <label class="field" for="names">참가자 이름</label>
+    <textarea id="names" spellcheck="false" aria-describedby="count">김민준
+이서연
+박지호
+최수아
+정하은
+강도윤
+조예린
+윤태경</textarea>
+    <p class="count" id="count"></p>
+
+    <label class="toggle">
+      <input type="checkbox" id="exclude" checked>
+      <span>뽑힌 사람은 제외하고 다시 돌리기
+        <small>체크를 끄면 같은 사람이 또 뽑힐 수 있어요</small>
+      </span>
+    </label>
+
+    <button class="btn-quiet" id="reset" type="button">처음부터 다시 시작</button>
+    <button class="btn-quiet" id="soundBtn" type="button" aria-pressed="true">효과음 끄기</button>
+  </section>
+
+  <section class="wheel-area">
+    <div class="wheel">
+      <div class="pointer"></div>
+      <canvas id="wheel" role="img" aria-label="참가자 이름이 적힌 룰렛"></canvas>
+      <div class="hub"><b id="hubNum">8</b><small>명 남음</small></div>
+    </div>
+    <button class="spin" id="spin" type="button">돌리기</button>
+  </section>
+</main>
+
+<section class="history">
+  <h2>뽑힌 순서</h2>
+  <ol id="historyList"></ol>
+  <p class="empty" id="historyEmpty">아직 뽑은 사람이 없습니다.</p>
+</section>
+
+<div class="overlay" id="overlay" hidden>
+  <p class="reveal-order" id="revealOrder"></p>
+  <p class="reveal-name" id="revealName"></p>
+  <button class="btn-ghost" id="closeReveal" type="button">확인</button>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var FONT = "'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',system-ui,sans-serif";
+  var PALETTE = [
+    [226,87,76],[242,163,60],[247,209,84],[127,191,106],
+    [63,167,160],[74,127,193],[124,107,196],[212,111,168]
+  ];
+
+  var el = {
+    names: document.getElementById('names'),
+    count: document.getElementById('count'),
+    exclude: document.getElementById('exclude'),
+    reset: document.getElementById('reset'),
+    soundBtn: document.getElementById('soundBtn'),
+    canvas: document.getElementById('wheel'),
+    hubNum: document.getElementById('hubNum'),
+    spin: document.getElementById('spin'),
+    list: document.getElementById('historyList'),
+    listEmpty: document.getElementById('historyEmpty'),
+    overlay: document.getElementById('overlay'),
+    revealOrder: document.getElementById('revealOrder'),
+    revealName: document.getElementById('revealName'),
+    closeReveal: document.getElementById('closeReveal')
+  };
+  var ctx = el.canvas.getContext('2d');
+
+  var excluded = [];      // 제외된 이름
+  var history = [];       // {name, color}
+  var rotation = 0;       // 현재 회전각(라디안)
+  var spinning = false;
+  var soundOn = true;
+  var pending = null;     // 회전이 끝난 뒤 확정할 당첨 정보
+
+  /* ── 데이터 ───────────────────────────── */
+  function allNames(){
+    var seen = {}, out = [];
+    el.names.value.split('\n').forEach(function(line){
+      var n = line.trim();
+      if(n && !seen[n]){ seen[n] = 1; out.push(n); }
+    });
+    return out;
+  }
+  function activeNames(){
+    return allNames().filter(function(n){ return excluded.indexOf(n) === -1; });
+  }
+
+  /* ── 색상 ─────────────────────────────── */
+  function hslToRgb(h,s,l){
+    s/=100; l/=100;
+    var c=(1-Math.abs(2*l-1))*s, x=c*(1-Math.abs((h/60)%2-1)), m=l-c/2, r=0,g=0,b=0;
+    if(h<60){r=c;g=x;} else if(h<120){r=x;g=c;} else if(h<180){g=c;b=x;}
+    else if(h<240){g=x;b=c;} else if(h<300){r=x;b=c;} else {r=c;b=x;}
+    return [Math.round((r+m)*255),Math.round((g+m)*255),Math.round((b+m)*255)];
+  }
+  function colorAt(i,total){
+    var rgb = total <= PALETTE.length
+      ? PALETTE[i]
+      : hslToRgb((i*360/total)%360, 62, 54);
+    var lum = 0.299*rgb[0] + 0.587*rgb[1] + 0.114*rgb[2];
+    return {
+      css:'rgb('+rgb[0]+','+rgb[1]+','+rgb[2]+')',
+      ink: lum > 150 ? '#14112B' : '#FFFFFF',
+      halo: lum > 150 ? 'rgba(255,255,255,.55)' : 'rgba(0,0,0,.40)'
+    };
+  }
+
+  /* ── 룰렛 그리기 ──────────────────────── */
+  function fitText(text,max){
+    if(ctx.measureText(text).width <= max) return text;
+    var t = text;
+    while(t.length > 1 && ctx.measureText(t+'…').width > max) t = t.slice(0,-1);
+    return t + '…';
+  }
+
+  function draw(){
+    var size = el.canvas.clientWidth;
+    if(!size) return;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    el.canvas.width = size*dpr;
+    el.canvas.height = size*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,size,size);
+
+    var cx = size/2, cy = size/2, r = size/2 - 3;
+    var list = activeNames();
+
+    if(!list.length){
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+      ctx.fillStyle = '#2B2454'; ctx.fill();
+      ctx.fillStyle = '#B6ADDC';
+      ctx.font = '600 ' + Math.max(13, size*0.045) + 'px ' + FONT;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('이름을 입력해 주세요', cx, cy + size*0.22);
+      return;
+    }
+
+    var seg = Math.PI*2 / list.length;
+    for(var i=0;i<list.length;i++){
+      var c = colorAt(i,list.length);
+      var start = -Math.PI/2 + i*seg;
+
+      ctx.beginPath();
+      ctx.moveTo(cx,cy);
+      ctx.arc(cx,cy,r,start,start+seg);
+      ctx.closePath();
+      ctx.fillStyle = c.css; ctx.fill();
+      ctx.lineWidth = Math.max(1.5, size*0.005);
+      ctx.strokeStyle = 'rgba(16,13,36,.45)';
+      ctx.stroke();
+
+      ctx.save();
+      ctx.translate(cx,cy);
+      ctx.rotate(start + seg/2);
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      var fs = Math.max(11, Math.min(size*0.062, seg*r*0.60));
+      ctx.font = '700 ' + fs + 'px ' + FONT;
+      var label = fitText(list[i], r*0.66);
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = fs*0.16;
+      ctx.strokeStyle = c.halo;
+      ctx.strokeText(label, r - size*0.045, 0);   // 어떤 색 위에서도 읽히도록 테두리
+      ctx.fillStyle = c.ink;
+      ctx.fillText(label, r - size*0.045, 0);
+      ctx.restore();
+    }
+  }
+
+  function render(){
+    var all = allNames(), active = activeNames();
+    el.count.innerHTML = '전체 <b>' + all.length + '명</b> · 남은 사람 <b>' + active.length + '명</b>';
+    el.hubNum.textContent = active.length;
+    el.spin.disabled = spinning || active.length === 0;
+    el.spin.textContent = active.length === 0
+      ? (all.length ? '모두 뽑았습니다' : '이름을 입력하세요')
+      : (spinning ? '돌리는 중…' : '돌리기');
+    draw();
+    renderHistory();
+  }
+
+  function renderHistory(){
+    el.list.innerHTML = '';
+    el.listEmpty.hidden = history.length > 0;
+    history.forEach(function(h,i){
+      var li = document.createElement('li');
+      var num = document.createElement('i');
+      num.textContent = i+1;
+      num.style.background = h.color;
+      num.style.color = h.ink;
+      var span = document.createElement('span');
+      span.textContent = h.name;
+      li.appendChild(num); li.appendChild(span);
+      el.list.appendChild(li);
+    });
+  }
+
+  /* ── 효과음 ───────────────────────────── */
+  var actx = null;
+  function audio(){
+    if(!actx){
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return null;
+      actx = new AC();
+    }
+    if(actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+  function beep(freq,dur,vol,type){
+    if(!soundOn) return;
+    var c = audio(); if(!c) return;
+    var o = c.createOscillator(), g = c.createGain();
+    o.type = type || 'square';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(vol, c.currentTime + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(); o.stop(c.currentTime + dur + 0.02);
+  }
+  function fanfare(){
+    if(!soundOn) return;
+    [523.25, 659.25, 783.99, 1046.5].forEach(function(f,i){
+      setTimeout(function(){ beep(f, 0.28, 0.09, 'triangle'); }, i*110);
+    });
+  }
+
+  /* ── 돌리기 ───────────────────────────── */
+  function spin(){
+    var list = activeNames();
+    if(spinning || !list.length) return;
+
+    var n = list.length;
+    var seg = Math.PI*2 / n;
+    var win = Math.floor(Math.random()*n);
+    var jitter = (Math.random() - 0.5) * seg * 0.7;
+
+    // 당첨 조각의 중심이 위쪽 화살표에 오도록 최종 회전각 계산
+    var targetMod = -((win + 0.5)*seg + jitter);
+    var delta = ((targetMod - rotation) % (Math.PI*2) + Math.PI*2) % (Math.PI*2);
+    var from = rotation;
+    var to = rotation + Math.PI*2*5 + delta;
+
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var dur = reduce ? 700 : 3000;
+    var t0 = performance.now();
+    var lastSeg = -1;
+
+    spinning = true;
+    pending = { name:list[win], color:colorAt(win,n) };
+    render();
+
+    function frame(now){
+      var t = Math.min((now - t0)/dur, 1);
+      var e = 1 - Math.pow(1 - t, 4.5);          // 끝으로 갈수록 천천히
+      rotation = from + (to - from)*e;
+      el.canvas.style.transform = 'rotate(' + rotation + 'rad)';
+
+      if(!reduce){
+        var cur = Math.floor((((-rotation) % (Math.PI*2) + Math.PI*2) % (Math.PI*2)) / seg);
+        if(cur !== lastSeg){ lastSeg = cur; beep(1100, 0.05, 0.05); }
+      }
+      if(t < 1) requestAnimationFrame(frame);
+      else finish();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function finish(){
+    spinning = false;
+    rotation = rotation % (Math.PI*2);
+    el.canvas.style.transform = 'rotate(' + rotation + 'rad)';
+
+    history.push({ name:pending.name, color:pending.color.css, ink:pending.color.ink });
+    if(el.exclude.checked) excluded.push(pending.name);
+
+    el.revealOrder.textContent = history.length + '번째 당첨';
+    el.revealName.textContent = pending.name;
+    el.revealName.style.color = pending.color.css;
+    el.overlay.hidden = false;
+    el.closeReveal.focus();
+    fanfare();
+  }
+
+  function closeReveal(){
+    el.overlay.hidden = true;
+    render();
+    if(!el.spin.disabled) el.spin.focus();
+  }
+
+  /* ── 이벤트 ───────────────────────────── */
+  el.spin.addEventListener('click', spin);
+  el.closeReveal.addEventListener('click', closeReveal);
+  el.overlay.addEventListener('click', function(e){ if(e.target === el.overlay) closeReveal(); });
+
+  el.names.addEventListener('input', function(){ if(!spinning) render(); });
+  el.exclude.addEventListener('change', render);
+
+  el.reset.addEventListener('click', function(){
+    if(spinning) return;
+    excluded = []; history = [];
+    rotation = 0;
+    el.canvas.style.transform = 'rotate(0rad)';
+    render();
+  });
+
+  el.soundBtn.addEventListener('click', function(){
+    soundOn = !soundOn;
+    el.soundBtn.textContent = soundOn ? '효과음 끄기' : '효과음 켜기';
+    el.soundBtn.setAttribute('aria-pressed', String(soundOn));
+    if(soundOn) beep(880, 0.08, 0.06);
+  });
+
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && !el.overlay.hidden){ closeReveal(); return; }
+    if(e.code === 'Space' || e.key === 'Enter'){
+      var tag = (document.activeElement && document.activeElement.tagName) || '';
+      if(tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'INPUT') return;
+      e.preventDefault();
+      if(!el.overlay.hidden) closeReveal(); else spin();
+    }
+  });
+
+  var resizeTimer;
+  window.addEventListener('resize', function(){
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(draw, 120);
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
